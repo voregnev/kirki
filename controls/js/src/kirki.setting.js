@@ -24,6 +24,10 @@ kirki = jQuery.extend( kirki, {
 			    foundInStep  = 0,
 			    currentVal   = '';
 
+			if ( ! _.isUndefined( wp.customize.instance( setting ) ) ) {
+				return wp.customize.instance( setting ).get();
+			}
+
 			_.each( parts, function( part, i ) {
 				part = part.replace( ']', '' );
 
@@ -43,7 +47,7 @@ kirki = jQuery.extend( kirki, {
 						currentVal = currentVal[ part ];
 					}
 				}
-			});
+			} );
 
 			return currentVal;
 		},
