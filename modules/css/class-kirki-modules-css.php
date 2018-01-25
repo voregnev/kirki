@@ -42,6 +42,14 @@ class Kirki_Modules_CSS {
 	public static $css_array = array();
 
 	/**
+	 * The CSS array for gutenberg.
+	 *
+	 * @access public
+	 * @var array
+	 */
+	public static $gutenberg_css_array = array();
+
+	/**
 	 * Set to true if you want to use the AJAX method.
 	 *
 	 * @access public
@@ -57,6 +65,16 @@ class Kirki_Modules_CSS {
 	 * @var object
 	 */
 	protected $css_to_file;
+
+	/**
+	 * Should we add Gutenberg styles?
+	 *
+	 * @static
+	 * @access protected
+	 * @since 3.0.26
+	 * @var bool
+	 */
+	protected static $add_gutenberg_styles = true;
 
 	/**
 	 * Constructor
@@ -88,6 +106,10 @@ class Kirki_Modules_CSS {
 
 		add_action( 'init', array( $this, 'init' ) );
 
+		self::$add_gutenberg_styles = (bool) apply_filters( 'kirki_add_gutenberg_styles', true );
+		if ( self::$add_gutenberg_styles ) {
+			add_action( 'admin_head', array( $this, 'get_gutenberg_styles' ) );
+		}
 	}
 
 	/**
@@ -173,10 +195,43 @@ class Kirki_Modules_CSS {
 	 * @since 3.0.0
 	 */
 	public function enqueue_compiled_file() {
-
 		wp_enqueue_style( 'kirki-styles', $this->css_to_file->get_url(), array(), $this->css_to_file->get_timestamp() );
-
 	}
+
+	/**
+	 * Gets gutenberg styles.
+	 *
+	 * @access public
+	 * @since 3.0.26
+	 */
+	public function get_gutenberg_styles() {
+		$configs = Kirki::$config;
+		foreach ( $configs as $config_id => $args ) {
+			if ( isset( $args['disable_output'] ) && true === $args['disable_output'] ) {
+				continue;
+			}
+			self::loop_controls( $config_id );
+		}
+
+		foreach ( self::$gutenberg_css_array as $config => $css_array ) {
+			foreach ( $css_array as $element => $styles ) {
+				unset( $css_array[ $element ] );
+				$element               = str_replace( array( 'html', 'body' ), '.editor-visual-editor', $element );
+				$css_array[ $element ] = $styles;
+			}
+			self::$gutenberg_css_array[ $config ] = $css_array;
+		}
+		$styles = Kirki_Modules_CSS_Generator::styles_parse( Kirki_Modules_CSS_Generator::add_prefixes( self::$gutenberg_css_array ) );
+		?>
+		<style>
+		.editor-block-list__block:not(.is-multi-selected) .wp-block-paragraph {
+			background: none;
+		}
+		<?php echo $styles; // WPCS: XSS ok. ?>
+		</style>
+		<?php
+	}
+
 	/**
 	 * Adds inline styles.
 	 *
@@ -282,6 +337,10 @@ class Kirki_Modules_CSS {
 				// Add the globals.
 				if ( isset( self::$css_array[ $config_id ] ) && ! empty( self::$css_array[ $config_id ] ) ) {
 					Kirki_Helper::array_replace_recursive( $css, self::$css_array[ $config_id ] );
+				}
+
+				if ( is_admin() && self::$add_gutenberg_styles ) {
+					self::$gutenberg_css_array = $css;
 				}
 			}
 		}
